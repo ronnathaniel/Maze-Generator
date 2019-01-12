@@ -1,154 +1,180 @@
 import pygame as py
+from pygame.key import get_pressed
+from pygame import *
 from random import choice
 from Cell import Cell
 
 
 class Maze:
-    # sets up pygame
-    def setup_pygame(self):
+    
+    # sets up pygame GUI
+    def pygame_setup(self):
         py.init()
         self.screen = py.display.set_mode((400, 400))
         py.display.set_caption("")
 
-    # sets up the board
-    def setup_maze(self):
-        self.stack = []
+    # sets up maze
+    def setup_board(self):
         self.board = []
         self.rows, self.cols = int(400/Cell.side), int(400/Cell.side)
         for i in range(self.rows):
             self.board.append([])
             for j in range(self.cols):
                 self.board[i].append(Cell(i, j))
-        self.pos = self.board[0][0]
 
-    # returns unvisited neighbors of given cell
+        self.start_pos = self.board[0][0]
+        self.start_stack = []
+
+        self.end_pos = self.board[len(self.board)-1][len(self.board)-1]
+        self.end_stack = []
+
+    def setup(self):
+        self.pygame_setup()
+        self.setup_board()
+
+    # checks if board is empty, returns boolean
+    def empty(self) -> bool:
+        for arr in self.board:
+            for cell in arr:
+                if not cell.visited:
+                    return False
+        return True
+    
+    # gets unvisited neighbors of given cell, returns a list
     def get_neighbors(self, i, j) -> list:
         neighbors = []
         if j > 0 and not self.board[i][j - 1].visited:
             neighbors.append('up')
-        if j < self.cols-1 and not self.board[i][j + 1].visited:
+        if j < self.cols - 1 and not self.board[i][j + 1].visited:
             neighbors.append('down')
-        if i < self.rows-1 and not self.board[i + 1][j].visited:
-            neighbors.append('right')
+        if i < self.rows - 1 and not self.board[i + 1][j].visited:
+            neighbors.append('right')#self.board[i + 1][j])
         if i > 0 and not self.board[i - 1][j].visited:
-            neighbors.append('left')
+            neighbors.append('left')#self.board[i - 1][j])
         return neighbors
 
-    # returns visited neighbors without walls in between of given cell
-    def next_walls(self, next, i, j) -> Cell:
-        if next == 'up':
+    # takes chosen neighbor of given cell, 
+    # removes walls between cells, returns neighbor cell
+    def next_walls(self, chosen, i, j) -> Cell:
+        if chosen == 'up':
             self.board[i][j].wall_up = None
             self.board[i][j - 1].wall_down = None
             return self.board[i][j - 1]
 
-        elif next == 'down':
+        elif chosen == 'down':
             self.board[i][j].wall_down = None
             self.board[i][j + 1].wall_up = None
             return self.board[i][j + 1]
 
-        elif next == 'right':
+        elif chosen == 'right':
             self.board[i][j].wall_right = None
             self.board[i + 1][j].wall_left = None
             return self.board[i + 1][j]
 
-        elif next == 'left':
+        elif chosen == 'left':
             self.board[i][j].wall_left = None
             self.board[i - 1][j].wall_right = None
             return self.board[i - 1][j]
 
-    # returns next move
-    def next_move(self):
+    # returns next move of given position
+    def next_move(self, *, pos, stack):
         for i in range(self.rows):
-            for j in range(self.cols):
-                if self.board[i][j] == self.pos:
+            for j in range(self.rows):
+                if self.board[i][j] == pos:
                     neighbors = self.get_neighbors(i, j)
                     if neighbors:
                         next = choice(neighbors)
+                        return self.next_walls(next, i, j)
                     else:
-                        if len(self.stack) > 1:
-                            self.stack.pop()
-                            return self.stack.pop()
-                        return
+                        if len(stack) > 1:
+                            stack.pop()
+                            return stack.pop()
+                        else:
+                            vicinity = self.get_vicinity(i, j)
+                            next = choice(vicinity)
+                            return self.next_walls(next, i, j)
 
-                    return self.next_walls(next, i, j)
-
-    # execuutes the move
     def move(self):
-        self.pos.visited = 1
-        self.stack.append(self.pos)
-        self.pos = self.next_move()
+        self.start_pos.visited = 1
+        self.end_pos.visited = 1
+        self.start_stack.append(self.start_pos)
+        self.end_stack.append(self.end_pos)
+        self.start_pos = self.next_move(pos=self.start_pos, stack=self.start_stack)
+        self.end_pos = self.next_move(pos=self.end_pos, stack=self.end_stack
 
-    # draws black background
+    # draws black background 
     def draw_background(self):
         surface = self.screen
         color = (0, 0, 0)
-        rect = py.Rect(0, 0, 400, 400)
+        rect = Rect(0, 0, 400, 400)
         py.draw.rect(surface, color, rect)
 
-    # draws walls in between cells
-    def draw_walls(self, cell):
+    # draws lines in between visited cells
+    def draw_lines(self, cell):
         surface = self.screen
         if cell.wall_up:
             color = (255, 255, 255)
         else:
             color = (138, 43, 226)
         py.draw.line(surface, color, cell.top_left, cell.top_right)
+
         if cell.wall_down:
             color = (255, 255, 255)
         else:
             color = (138, 43, 226)
         py.draw.line(surface, color, cell.bot_left, cell.bot_right)
+
         if cell.wall_right:
             color = (255, 255, 255)
         else:
             color = (138, 43, 226)
         py.draw.line(surface, color, cell.top_right, cell.bot_right)
+
         if cell.wall_left:
             color = (255, 255, 255)
         else:
             color = (138, 43, 226)
-        py.draw.line(surface, color, cell.top_left, cell.bot_left, 2)
+        py.draw.line(surface, color, cell.top_left, cell.bot_left)
 
-    # draws each visited cell as purple
+    # draws visited cells in purple
     def draw_visited(self):
         for arr in self.board:
             for cell in arr:
                 if cell.visited:
                     surface = self.screen
                     color = (138, 43, 226)
-                    rect = py.Rect(cell.x, cell.y, Cell.side, Cell.side)
+                    rect = (cell.x, cell.y, Cell.side, Cell.side)
                     py.draw.rect(surface, color, rect)
 
-                self.draw_walls(cell)
+                    self.draw_lines(cell)
 
-    # executes the draw
     def draw(self):
         py.display.flip()
+        #py.time.Clock().tick(25)
         self.draw_background()
         self.draw_visited()
+        self.draw_finished()
 
-    # while loop
     def main(self):
         while 1:
             for event in py.event.get():
                 if event.type == py.QUIT:
                     break
-            if py.key.get_pressed()[py.K_LEFT]:
+            if get_pressed()[K_ESCAPE]:
                 break
-            if py.key.get_pressed()[py.K_SPACE]:
-                self.__init__()
-                print(Cell.side)
+                # exits program
+            if get_pressed()[K_SPACE]:
+                self.setup()
+                # restarts program
 
-            if self.pos:
+            if not self.empty():
                 self.move()
             self.draw()
 
-    # sets up pygame and board, runs the animation
     def __init__(self):
-        self.setup_pygame()
-        self.setup_maze()
+        self.setup()
         self.main()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     Maze()
