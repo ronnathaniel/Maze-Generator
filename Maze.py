@@ -161,7 +161,7 @@ class Maze:
 
     def draw(self):
         py.display.flip()
-        py.time.Clock().tick(25)
+        py.time.Clock().tick(30)
         self.draw_background()
         self.draw_visited()
         
